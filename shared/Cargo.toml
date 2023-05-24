@@ -1,0 +1,13 @@
+[package]
+name = "shared"
+description = "Shared models and similar for the Assassin game"
+authors = ["Daniel Lyne <DLyne@pm.me>"]
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+bevy = "0.10"
+lazy_static = "1"
+naia-bevy-shared = "0.21"
+rapier2d = { version = "0.17", features = ["enhanced-determinism"] }

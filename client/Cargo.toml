@@ -1,0 +1,15 @@
+[package]
+name = "client"
+description = "The client for the Assassin game"
+authors = ["Daniel Lyne <DLyne@pm.me>"]
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = "0.10"
+bevy_egui = "0.20"
+bevy-inspector-egui = "0.18"
+clap = { version = "4", features = ["derive"] }
+naia-bevy-client = { version = "0.21", features = ["transport_webrtc"] }
+rapier2d = { version = "0.17", features = ["enhanced-determinism", "wasm-bindgen"] }
+shared = { path = "../shared" }
