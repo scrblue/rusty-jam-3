@@ -65,11 +65,6 @@ pub fn tick_events(
 
         input_history.history.insert(*tick, command.clone());
         client.send_tick_buffer_message::<PlayerInputChannel, PlayerInput>(tick, &command);
-
-        if let Ok(handles) = query.get(avatar.predicted) {
-            let Some(rb) = physics.get_rigid_body_mut(handles.rigid_body) else { continue; };
-            rb.set_linvel(vector![command.x_axis, command.y_axis], true);
-        }
     }
 }
 

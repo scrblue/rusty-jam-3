@@ -83,27 +83,8 @@ pub fn sync_physics(
 
         let pos = rb.translation() * 100.0;
 
-        if vector![lerp.next_x, lerp.next_y].metric_distance(&vector![pos.x, pos.y]) > 0.5 {
+        if vector![lerp.next_x, lerp.next_y].metric_distance(&vector![pos.x, pos.y]) > 5.0 {
             lerp.next_pos(pos.x, pos.y);
-        }
-    }
-}
-
-/// The [`PhysicsStateSync`] is to be synchronized with the [`PhysicsWorld`]
-pub fn sync_physics_state(
-    physics_query: Query<(&PhysicsStateSync, &PhysicsBodyHandle), With<Predicted>>,
-    mut physics: ResMut<PhysicsWorld>,
-) {
-    for (state, handle) in physics_query.iter() {
-        let Some(rb) = physics.get_rigid_body_mut(handle.rigid_body) else { continue; };
-
-        if rb
-            .translation()
-            .metric_distance(&vector![*state.pos_x_m, *state.pos_y_m])
-            > 0.5
-        {
-            rb.set_translation(vector![*state.pos_x_m, *state.pos_y_m], true);
-            rb.set_linvel(vector![*state.linvel_x_m, *state.linvel_y_m], true);
         }
     }
 }

@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
@@ -10,7 +12,7 @@ use in_game::{
     init_game,
     input::key_input,
     physics::{restep_physics, step_physics},
-    sync::{sync_camera_pos, sync_physics, sync_physics_state, sync_predicted_sprites},
+    sync::{sync_camera_pos, sync_physics, sync_predicted_sprites},
     InputHistory, OwnedEntities, QueuedCommand,
 };
 use naia_bevy_client::{ClientConfig, CommandHistory, Plugin as ClientPlugin, ReceiveEvents};
@@ -64,15 +66,20 @@ fn main() {
         .add_systems(
             (
                 key_input,
-                sync_camera_pos,
+                // sync_camera_pos,
                 sync_predicted_sprites,
                 sync_physics,
-                sync_physics_state,
-                step_physics,
+                // sync_physics_state,
             )
                 .chain()
                 .in_set(MainLoop),
         )
+        .add_system(
+            step_physics
+                .in_schedule(CoreSchedule::FixedUpdate)
+                .in_set(MainLoop),
+        )
+        .insert_resource(FixedTime::new(Duration::from_millis(50)))
         .run()
 }
 

@@ -19,68 +19,59 @@ use super::{Confirmed, InputHistory, OwnedEntities};
 pub fn restep_physics(
     mut reader: EventReader<UpdateComponentEvents>,
     physics_state_query: Query<(&PhysicsStateSync, &Confirmed)>,
-    mut mut_physics_state_query: Query<&mut PhysicsStateSync, Without<Confirmed>>,
     physics_handle_query: Query<&PhysicsBodyHandle>,
     owned_entities: Res<OwnedEntities>,
     mut player_commands: ResMut<InputHistory>,
     mut physics: ResMut<PhysicsWorld>,
     client: Client,
 ) {
-    let Some(current_tick) = client.client_tick() else { return; };
     let mut last_tick = None;
+    for events in reader.iter() {
+        for (tick, updated_entity) in events.read::<PhysicsStateSync>() {
+            let Ok((to_sync, confirmed)) = physics_state_query
+                .get(updated_entity) else { continue; };
 
-    for update in reader.iter() {
-        for (server_tick, entity) in update.read::<PhysicsStateSync>() {
-            let Ok((state, confirmed)) = physics_state_query.get(entity) else { continue; };
-            let Ok(mut predicted) = mut_physics_state_query.get_mut(confirmed.0) else { continue; };
+            let Ok(handles) = physics_handle_query.get(confirmed.0) else { continue; };
+            let Some(rb) = physics.get_rigid_body_mut(handles.rigid_body) else { continue; };
 
-            predicted.mirror(&*state);
+            rb.set_translation(vector![*to_sync.pos_x_m, *to_sync.pos_y_m], true);
+            rb.set_linvel(vector![*to_sync.linvel_x_m, *to_sync.linvel_y_m], true);
 
-            let Ok(handle) = physics_handle_query.get(confirmed.0) else { continue; };
-            let Some(rb) = physics.get_rigid_body_mut(handle.rigid_body) else { continue; };
-
-            rb.set_linvel(vector![*state.linvel_x_m, *state.linvel_y_m], true);
-            rb.set_translation(vector![*state.pos_x_m, *state.pos_y_m], true);
-
-            last_tick = Some(
-                last_tick
-                    .map(|curr| {
-                        if sequence_greater_than(server_tick, curr) {
-                            server_tick
+            if let Some(owned) = owned_entities.player_avatar.as_ref() {
+                if updated_entity == owned.confirmed {
+                    last_tick = if let Some(last_tick) = last_tick {
+                        if sequence_greater_than(tick, last_tick) {
+                            Some(tick)
                         } else {
-                            curr
+                            Some(last_tick)
                         }
-                    })
-                    .unwrap_or(server_tick),
-            );
+                    } else {
+                        Some(tick)
+                    }
+                }
+            }
         }
     }
 
-    if let Some(last_tick) = last_tick {
-        for _ in 0..(current_tick - last_tick) {
-            physics.step_back();
-        }
+    if let Some(owned) = owned_entities.player_avatar.as_ref() {
+        if let Some(mut last_tick) = last_tick {
+            last_tick = last_tick.wrapping_sub(1);
 
-        let server_tick = last_tick.wrapping_sub(1);
-        if let Some(avatar) = &owned_entities.player_avatar {
-            let mut last_tick = server_tick;
-            for (current_tick, input) in player_commands.history.replays(&server_tick) {
-                while current_tick > last_tick {
+            let Ok(handles) = physics_handle_query.get(owned.predicted) else { return; };
+
+            for (cmd_tick, cmd) in player_commands.history.replays(&last_tick) {
+                while sequence_greater_than(cmd_tick, last_tick) {
                     physics.step();
                     last_tick += 1;
                 }
 
-                let Ok(handle) = physics_handle_query.get(avatar.predicted) else { continue; };
-                let Some(rb) = physics.get_rigid_body_mut(handle.rigid_body) else { continue; };
+                let Some(rb) = physics.get_rigid_body_mut(handles.rigid_body) else { return; };
+                rb.set_linvel(vector![cmd.x_axis, cmd.y_axis], true);
+            }
 
-                rb.set_linvel(vector![input.x_axis, input.y_axis], true);
-
-                let Ok(mut predicted) = mut_physics_state_query
-                    .get_mut(avatar.predicted) else { continue; };
-                *predicted.linvel_x_m = input.x_axis;
-                *predicted.linvel_y_m = input.y_axis;
-
+            while sequence_greater_than(client.client_tick().unwrap(), last_tick) {
                 physics.step();
+                last_tick += 1;
             }
         }
     }
